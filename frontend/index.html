@@ -1,0 +1,140 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="UTF-8" />
+    <script src="https://cdn.tailwindcss.com"></script>
+    <title>Sydney Events</title>
+</head>
+
+<body class="bg-gray-100 text-gray-900">
+    <div class="max-w-4xl mx-auto py-10">
+        <h1 class="text-3xl font-bold mb-6">Events in Sydney</h1>
+        <div id="events" class="space-y-4"></div>
+    </div>
+
+    <!-- Modal -->
+    <div id="emailModal" class="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center hidden">
+        <div class="bg-white rounded-lg p-6 w-96">
+            <h2 class="text-xl font-bold mb-4">Enter your email to get tickets</h2>
+            <form id="emailForm" class="flex flex-col gap-4">
+                <input
+                    type="email"
+                    id="emailInput"
+                    placeholder="Email address"
+                    required
+                    class="border border-gray-300 rounded px-3 py-2 focus:outline-none focus:ring-2 focus:ring-blue-500"
+                />
+                <label class="flex items-center gap-2">
+                    <input type="checkbox" id="optInCheckbox" required />
+                    <span>I agree to receive emails about this event</span>
+                </label>
+                <div class="flex justify-end gap-2">
+                    <button
+                        type="button"
+                        id="cancelBtn"
+                        class="px-4 py-2 bg-gray-300 rounded hover:bg-gray-400"
+                    >
+                        Cancel
+                    </button>
+                    <button
+                        type="submit"
+                        class="px-4 py-2 bg-blue-600 text-white rounded hover:bg-blue-700"
+                    >
+                        Submit
+                    </button>
+                </div>
+            </form>
+        </div>
+    </div>
+
+    <script>
+        let currentEventLink = null;
+
+        function openModal(eventLink) {
+            currentEventLink = eventLink;
+            document.getElementById("emailModal").classList.remove("hidden");
+        }
+
+        function closeModal() {
+            currentEventLink = null;
+            document.getElementById("emailModal").classList.add("hidden");
+            document.getElementById("emailForm").reset();
+        }
+
+        document.getElementById("cancelBtn").addEventListener("click", () => {
+            closeModal();
+        });
+
+        document.getElementById("emailForm").addEventListener("submit", async (e) => {
+            e.preventDefault();
+            const email = document.getElementById("emailInput").value;
+            const optIn = document.getElementById("optInCheckbox").checked;
+
+            if (!email || !optIn) {
+                alert("Please enter your email and agree to receive emails.");
+                return;
+            }
+
+            try {
+                const response = await fetch("http://localhost:5000/api/optin", {
+                    method: "POST",
+                    headers: {
+                        "Content-Type": "application/json",
+                    },
+                    body: JSON.stringify({ email: email, event_link: currentEventLink }),
+                });
+
+                if (response.ok) {
+                    closeModal();
+                    window.location.href = currentEventLink;
+                } else {
+                    const data = await response.json();
+                    alert("Error: " + (data.error || "Failed to submit email."));
+                }
+            } catch (error) {
+                alert("Network error: " + error.message);
+            }
+        });
+
+        fetch("http://localhost:5000/api/events")
+            .then((res) => {
+                console.log("Fetch /api/events response status:", res.status);
+                return res.json();
+            })
+            .then((events) => {
+                console.log("Events received:", events);
+                const container = document.getElementById("events");
+                container.innerHTML = "";
+
+                if (!events || events.length === 0) {
+                    container.innerHTML = "<p>No events found.</p>";
+                    return;
+                }
+
+                events.forEach((event) => {
+                    const card = document.createElement("div");
+                    card.className =
+                        "p-4 bg-white rounded-lg shadow flex flex-col md:flex-row gap-4 items-center";
+
+                    card.innerHTML = `
+        <img src="${event.image}" alt="event" class="w-32 h-32 object-cover rounded" />
+        <div class="flex-1">
+          <h2 class="text-xl font-bold mb-1">${event.title}</h2>
+          <p class="text-sm text-gray-500 mb-2">${event.date}</p>
+          <button class="bg-blue-500 text-white px-3 py-1 rounded" onclick="openModal('${event.link}')">GET TICKETS</button>
+        </div>
+      `;
+
+                    container.appendChild(card);
+                });
+            })
+            .catch((error) => {
+                console.error("Error fetching events:", error);
+                const container = document.getElementById("events");
+                container.innerHTML = "<p>Error loading events.</p>";
+            });
+    </script>
+</body>
+
+</html>
